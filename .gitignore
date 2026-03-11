@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+
+# VSCode settings
+.vscode/
+
+# training outputs
+videos/
+checkpoints/
+tb_logs/
+logs/
+
+# large files
+*.mp4
+*.zip
+*.pth
+*.pt
