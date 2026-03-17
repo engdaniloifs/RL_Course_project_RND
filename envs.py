@@ -47,7 +47,7 @@ def make_single_env(seed: int, rank: int):
             func=lambda a: allowed_actions[a],
             action_space=Discrete(len(allowed_actions))
         )
-        env = AtariWrapper(env, terminal_on_life_loss=False, clip_reward=False)
+        env = AtariWrapper(env,noop_max=0, terminal_on_life_loss=False, clip_reward=False)
         env = TimeLimit(env, max_episode_steps=4500)
         env = MontezumaRoomWrapper(env)
         env.reset(seed=seed + rank)
