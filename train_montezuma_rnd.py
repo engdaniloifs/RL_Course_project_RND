@@ -5,7 +5,7 @@ from callbacks import RNDBonusCallback, VideoRecorderCallback, RoomLoggerCallbac
 from envs import make_env
 from rnd import RNDModel
 import ale_py
-
+#tensorboard --logdir=./logs
 
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
 N_ENVS = 32
@@ -16,16 +16,16 @@ TOTAL_TIMESTEPS = 10_000_000
 N_STEPS = 128
 BATCH_SIZE = 1024
 N_EPOCHS = 4
-GAMMA = 0.999
+GAMMA = 0.99
 GAE_LAMBDA = 0.95
 LEARNING_RATE = 1e-4
 CLIP_RANGE = 0.1
 ENT_COEF = 0.001
 
-RND_LR = 1e-4
+RND_LR = 2e-4
 RND_LATENT_DIM = 512
 RND_UPDATE_PROPORTION = 1.0
-intrinsic_coefficient = 0.5
+intrinsic_coefficient = 1.0
 extrinsic_coefficient = 2.0
 
 CHECKPOINT_FREQ = 1_000_000 // N_ENVS

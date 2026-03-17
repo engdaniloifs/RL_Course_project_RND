@@ -6,11 +6,11 @@ from envs import make_video_env
 
 
 class RNDBonusCallback(BaseCallback):
-    def __init__(self, rnd_model: RNDModel,intrisic_coefficient, extrinsic_coefficient, verbose=0):
+    def __init__(self, rnd_model: RNDModel,intrinsic_coefficient, extrinsic_coefficient, verbose=0):
         super().__init__(verbose)
         self.rnd = rnd_model
         self.rollout_next_obs = []
-        self.intrisinc_coefficient = intrisic_coefficient
+        self.intrinsic_coefficient = intrinsic_coefficient
         self.extrinsic_coefficient = extrinsic_coefficient
 
     def _on_rollout_start(self) -> None:
@@ -60,8 +60,6 @@ class RNDBonusCallback(BaseCallback):
         self.logger.record("rnd/intrinsic_std", float(intrinsic.std()))
         self.logger.record("rnd/intrinsic_max", float(intrinsic.max()))
 
-from stable_baselines3.common.callbacks import BaseCallback
-
 
 class RoomLoggerCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -93,7 +91,6 @@ class RoomLoggerCallback(BaseCallback):
                 if visited:
                     self.logger.record("rooms/episode_max_room", max(visited))
 
-                print(f"Env {i} visited rooms: {sorted(visited)}")
                 self.local_rooms[i].clear()
 
         return True

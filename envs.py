@@ -25,29 +25,16 @@ class MontezumaRoomWrapper(gym.Wrapper):
     def _get_room(self):
         ram = self.unwrapped.ale.getRAM()
         return int(ram[3])
-
-    def _read_skull_pos(self):
-        ram = self.unwrapped.ale.getRAM()
-        skull_x = int(ram[47])
-        skull_y = int(ram[40])
-        return skull_x, skull_y
+    
 
     def _freeze_skull(self):
-        if not self.freeze_skull or self.fixed_skull_pos is None:
-            return
-
-        x, y = self.fixed_skull_pos
-        self.unwrapped.ale.setRAM(47, x)
-        self.unwrapped.ale.setRAM(40, y)
+        self.unwrapped.ale.setRAM(47, 56)
+        self.unwrapped.ale.setRAM(40, 93)
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
 
-        # read initial skull position once after reset
-        if self.freeze_skull:
-            self.fixed_skull_pos = self._read_skull_pos()
-            print(f"Initial skull position locked at x={self.fixed_skull_pos[0]}, y={self.fixed_skull_pos[1]}")
-            self._freeze_skull()
+        self._freeze_skull()
 
         info["room"] = self._get_room()
         return obs, info
@@ -56,9 +43,7 @@ class MontezumaRoomWrapper(gym.Wrapper):
         obs, reward, terminated, truncated, info = self.env.step(action)
 
         # if for some reason it was not set on reset, set it here once
-        if self.freeze_skull and self.fixed_skull_pos is None:
-            self.fixed_skull_pos = self._read_skull_pos()
-            print(f"Skull position locked at x={self.fixed_skull_pos[0]}, y={self.fixed_skull_pos[1]}")
+            
 
         self._freeze_skull()
 
@@ -88,6 +73,7 @@ def make_env(n_envs: int = 16, seed: int = 0):
     env = SubprocVecEnv([make_single_env(seed, i) for i in range(n_envs)])
     env = VecFrameStack(env, n_stack=4)
     env = VecTransposeImage(env)
+    env = VecMonitor(env)
     #print observation space and action space
     print(f"Observation space: {env.observation_space}")
     print(f"Action space: {env.action_space}")
