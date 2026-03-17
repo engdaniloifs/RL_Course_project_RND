@@ -1,7 +1,7 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
 
-from callbacks import RNDBonusCallback, VideoRecorderCallback
+from callbacks import RNDBonusCallback, VideoRecorderCallback, RoomLoggerCallback
 from envs import make_env
 from rnd import RNDModel
 import ale_py
@@ -25,7 +25,8 @@ ENT_COEF = 0.001
 RND_LR = 1e-4
 RND_LATENT_DIM = 512
 RND_UPDATE_PROPORTION = 1.0
-INT_REWARD_COEF = 1.0
+intrinsic_coefficient = 0.5
+extrinsic_coefficient = 2.0
 
 CHECKPOINT_FREQ = 1_000_000 // N_ENVS
 VIDEO_FREQ = 1_000_000
@@ -41,7 +42,6 @@ def main():
         lr=RND_LR,
         latent_dim=RND_LATENT_DIM,
         update_proportion=RND_UPDATE_PROPORTION,
-        int_reward_coef=INT_REWARD_COEF,
     )
 
     model = PPO(
@@ -60,7 +60,7 @@ def main():
         device=DEVICE,
     )
 
-    rnd_callback = RNDBonusCallback(rnd_model=rnd, verbose=1)
+    rnd_callback = RNDBonusCallback(rnd_model=rnd, intrinsic_coefficient=intrinsic_coefficient, extrinsic_coefficient=extrinsic_coefficient, verbose=1)
 
     checkpoint_callback = CheckpointCallback(
         save_freq=CHECKPOINT_FREQ,
@@ -79,6 +79,7 @@ def main():
         rnd_callback,
         checkpoint_callback,
         video_callback,
+        RoomLoggerCallback(verbose=1),
     ])
 
     model.learn(

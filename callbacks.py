@@ -6,10 +6,12 @@ from envs import make_video_env
 
 
 class RNDBonusCallback(BaseCallback):
-    def __init__(self, rnd_model: RNDModel, verbose=0):
+    def __init__(self, rnd_model: RNDModel,intrisic_coefficient, extrinsic_coefficient, verbose=0):
         super().__init__(verbose)
         self.rnd = rnd_model
         self.rollout_next_obs = []
+        self.intrisinc_coefficient = intrisic_coefficient
+        self.extrinsic_coefficient = extrinsic_coefficient
 
     def _on_rollout_start(self) -> None:
         self.rollout_next_obs = []
@@ -42,7 +44,7 @@ class RNDBonusCallback(BaseCallback):
         intrinsic = self.rnd.compute_intrinsic_reward(norm_obs, tgt=tgt_full)
         intrinsic = intrinsic.reshape(n_steps, n_envs)
 
-        self.model.rollout_buffer.rewards += intrinsic
+        self.model.rollout_buffer.rewards = self.model.rollout_buffer.rewards * self.extrinsic_coefficient + intrinsic * self.intrinsic_coefficient
 
         last_values = self.locals["values"]
         dones = self.locals["dones"]
@@ -57,6 +59,44 @@ class RNDBonusCallback(BaseCallback):
         self.logger.record("rnd/intrinsic_mean", float(intrinsic.mean()))
         self.logger.record("rnd/intrinsic_std", float(intrinsic.std()))
         self.logger.record("rnd/intrinsic_max", float(intrinsic.max()))
+
+from stable_baselines3.common.callbacks import BaseCallback
+
+
+class RoomLoggerCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super().__init__(verbose)
+        self.global_rooms = set()
+        self.local_rooms = None
+
+    def _on_training_start(self) -> None:
+        n_envs = self.training_env.num_envs
+        self.local_rooms = [set() for _ in range(n_envs)]
+
+    def _on_step(self) -> bool:
+        infos = self.locals["infos"]
+        dones = self.locals["dones"]
+
+        for i, info in enumerate(infos):
+            room = info.get("room")
+            if room is not None:
+                self.local_rooms[i].add(room)
+                self.global_rooms.add(room)
+
+        self.logger.record("rooms/total_unique_rooms", len(self.global_rooms))
+
+        for i, done in enumerate(dones):
+            if done:
+                visited = self.local_rooms[i]
+
+                self.logger.record("rooms/episode_num_rooms", len(visited))
+                if visited:
+                    self.logger.record("rooms/episode_max_room", max(visited))
+
+                print(f"Env {i} visited rooms: {sorted(visited)}")
+                self.local_rooms[i].clear()
+
+        return True
 
 
 class VideoRecorderCallback(BaseCallback):

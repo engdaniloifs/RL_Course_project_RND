@@ -16,10 +16,31 @@ from stable_baselines3.common.vec_env import (
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
 
 
+class MontezumaRoomWrapper(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def _get_room(self):
+        # Common Montezuma room byte in RAM
+        ram = self.unwrapped.ale.getRAM()
+        room = int(ram[3])
+        return room
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        info["room"] = self._get_room()
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        info["room"] = self._get_room()
+        return obs, reward, terminated, truncated, info
+
+
 def make_single_env(seed: int, rank: int):
     def _init():
         env = gym.make(ENV_ID,full_action_space=False, render_mode="rgb_array")
-        env.reset(seed=seed + rank)
+        
         allowed_actions = [0, 1, 2, 3, 4, 5, 11, 12]
         env = TransformAction(
             env,
@@ -28,6 +49,8 @@ def make_single_env(seed: int, rank: int):
         )
         env = AtariWrapper(env, terminal_on_life_loss=False, clip_reward=False)
         env = TimeLimit(env, max_episode_steps=4500)
+        env = MontezumaRoomWrapper(env)
+        env.reset(seed=seed + rank)
         return env
     return _init
 

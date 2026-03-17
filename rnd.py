@@ -74,8 +74,7 @@ class RNDModel:
         device="cuda",
         lr=1e-4,
         latent_dim=512,
-        update_proportion=0.25,
-        int_reward_coef=1.0,
+        update_proportion=0.25
     ):
         rnd_obs_shape = (1, obs_shape[1], obs_shape[2])
         self.device = th.device(device if th.cuda.is_available() else "cpu")
@@ -87,7 +86,6 @@ class RNDModel:
 
         self.optimizer = th.optim.Adam(self.predictor.parameters(), lr=lr)
         self.update_proportion = update_proportion
-        self.int_reward_coef = int_reward_coef
 
         self.obs_rms = RunningMeanStd(shape=rnd_obs_shape)
         self.int_reward_rms = RunningMeanStd(shape=(1,))
@@ -119,7 +117,7 @@ class RNDModel:
         reward_raw = reward.detach().cpu().numpy()
         self.int_reward_rms.update(reward_raw)
         reward_norm = reward_raw / np.sqrt(self.int_reward_rms.var + 1e-8)
-        return self.int_reward_coef * reward_norm
+        return reward_norm
 
     def update(self, norm_obs: np.ndarray, tgt_full: th.Tensor | None = None, batch_size=256) -> float:
         dataset = th.as_tensor(norm_obs, device=self.device, dtype=th.float32)
