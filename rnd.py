@@ -93,7 +93,8 @@ class RNDModel:
     def normalize_obs(self, obs_float: np.ndarray) -> np.ndarray:
         mean = self.obs_rms.mean
         std = np.sqrt(self.obs_rms.var + 1e-8)
-        obs_norm = (obs_float - mean) / std
+        obs_norm = obs_float - mean
+        obs_norm = obs_norm/ std
         return np.clip(obs_norm, -5.0, 5.0)
 
     def compute_target_features(self, norm_obs: np.ndarray) -> th.Tensor:

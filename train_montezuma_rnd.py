@@ -13,20 +13,20 @@ SEED = 0
 DEVICE = "cuda"
 
 TOTAL_TIMESTEPS = 10_000_000
-N_STEPS = 128
-BATCH_SIZE = 1024
+N_STEPS = 256
+BATCH_SIZE = 2048
 N_EPOCHS = 4
-GAMMA = 0.99
+GAMMA = 0.999
 GAE_LAMBDA = 0.95
 LEARNING_RATE = 1e-4
 CLIP_RANGE = 0.1
 ENT_COEF = 0.001
 
-RND_LR = 2e-4
+RND_LR = 5e-4
 RND_LATENT_DIM = 512
 RND_UPDATE_PROPORTION = 1.0
-intrinsic_coefficient = 1.0
-extrinsic_coefficient = 2.0
+intrinsic_coefficient = 0.25
+extrinsic_coefficient = 3.0
 
 CHECKPOINT_FREQ = 1_000_000 // N_ENVS
 VIDEO_FREQ = 1_000_000

@@ -38,13 +38,20 @@ class RNDBonusCallback(BaseCallback):
         obs_float = rnd_next_obs.astype(np.float32)
 
         norm_obs = self.rnd.normalize_obs(obs_float)
-        self.rnd.obs_rms.update(obs_float)
+        chunk_size = 512
+        for start in range(0, obs_float.shape[0], chunk_size):
+            self.rnd.obs_rms.update(obs_float[start:start + chunk_size])
 
         tgt_full = self.rnd.compute_target_features(norm_obs)
         intrinsic = self.rnd.compute_intrinsic_reward(norm_obs, tgt=tgt_full)
         intrinsic = intrinsic.reshape(n_steps, n_envs)
+        intrinsic_scaled = intrinsic * self.intrinsic_coefficient
 
-        self.model.rollout_buffer.rewards = self.model.rollout_buffer.rewards * self.extrinsic_coefficient + intrinsic * self.intrinsic_coefficient
+        if (self.model.rollout_buffer.rewards > 0).any():
+            #print the value of the extrinsic reward, not the whole buffer
+            self.logger.record("test/reward", float(self.model.rollout_buffer.rewards.max()))
+
+        self.model.rollout_buffer.rewards = self.model.rollout_buffer.rewards * self.extrinsic_coefficient + intrinsic_scaled
 
         last_values = self.locals["values"]
         dones = self.locals["dones"]
@@ -56,9 +63,9 @@ class RNDBonusCallback(BaseCallback):
         rnd_loss = self.rnd.update(norm_obs, tgt_full=tgt_full)
 
         self.logger.record("rnd/loss", float(rnd_loss))
-        self.logger.record("rnd/intrinsic_mean", float(intrinsic.mean()))
-        self.logger.record("rnd/intrinsic_std", float(intrinsic.std()))
-        self.logger.record("rnd/intrinsic_max", float(intrinsic.max()))
+        self.logger.record("rnd/intrinsic_mean", float(intrinsic_scaled.mean()))
+        self.logger.record("rnd/intrinsic_std", float(intrinsic_scaled.std()))
+        self.logger.record("rnd/intrinsic_max", float(intrinsic_scaled.max()))
 
 
 class RoomLoggerCallback(BaseCallback):
