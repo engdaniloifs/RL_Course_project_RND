@@ -5,6 +5,7 @@ import ale_py  # registers Atari envs
 
 from gymnasium.wrappers import TimeLimit, TransformAction
 from gymnasium.spaces import Discrete
+from stable_baselines3.common.atari_wrappers import AtariWrapper
 
 
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
@@ -58,21 +59,21 @@ def make_exact_replay_env(env_id: str):
         action_space=Discrete(len(allowed_actions)),
     )
 
-    env = TimeLimit(env, max_episode_steps=4500)
+    # Same order as training
     env = AtariWrapper(
         env,
         noop_max=0,
         terminal_on_life_loss=False,
         clip_reward=False,
     )
+    env = TimeLimit(env, max_episode_steps=4500)
     env = MontezumaRoomWrapper(env, freeze_skull=True)
 
     return env
 
 
-def restore_full_state(env, state_bytes):
-    state = payload["episode_start_state"]
-    env.unwrapped.restore_state(state)
+def restore_full_state(env, saved_state):
+    env.unwrapped.restore_state(saved_state)
 
 
 def replay_exact_episode(meta_path: str):
@@ -86,12 +87,12 @@ def replay_exact_episode(meta_path: str):
 
     actions = payload.get("actions")
     rewards = payload.get("rewards")
-    state_bytes = payload.get("episode_start_full_state")
+    saved_state = payload.get("episode_start_state")
 
     if actions is None:
         raise ValueError("Payload does not contain 'actions'.")
-    if state_bytes is None:
-        raise ValueError("Payload does not contain 'episode_start_full_state'.")
+    if saved_state is None:
+        raise ValueError("Payload does not contain 'episode_start_state'.")
 
     print(f"Loaded metadata: {meta_path}")
     print(f"Loaded payload: {payload_path}")
@@ -102,11 +103,9 @@ def replay_exact_episode(meta_path: str):
     env = make_exact_replay_env(ENV_ID)
 
     try:
-        # Reset once so env is fully initialized
         obs, info = env.reset()
 
-        # Restore exact saved emulator state
-        restore_full_state(env, state_bytes)
+        restore_full_state(env, saved_state)
 
         total_reward = 0.0
 
@@ -135,7 +134,7 @@ def replay_exact_episode(meta_path: str):
 
 
 def main():
-    replay_exact_episode("checkpoints/best_episode.json")
+    replay_exact_episode("best_models/best_episode.json")
 
 
 if __name__ == "__main__":
