@@ -15,6 +15,53 @@ from stable_baselines3.common.vec_env import (
 
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
 
+import gymnasium as gym
+import pickle
+
+
+class EpisodeRecorderWrapper(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self.episode_actions = []
+        self.episode_rewards = []
+        self.episode_start_full_state = None
+
+    def _clone_full_state(self):
+        ale = self.unwrapped.ale
+        state_ref = ale.cloneSystemState()
+        state = ale.encodeState(state_ref)
+        ale.deleteState(state_ref)
+        return bytes(state)
+
+    def _restore_full_state(self, state_bytes):
+        ale = self.unwrapped.ale
+        state_ref = ale.decodeState(state_bytes)
+        ale.restoreSystemState(state_ref)
+        ale.deleteState(state_ref)
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.episode_actions = []
+        self.episode_rewards = []
+        self.episode_start_full_state = self._clone_full_state()
+        info = dict(info)
+        info["episode_start_full_state"] = self.episode_start_full_state
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        self.episode_actions.append(int(action))
+        self.episode_rewards.append(float(reward))
+
+        if terminated or truncated:
+            info = dict(info)
+            info["episode_actions"] = self.episode_actions.copy()
+            info["episode_rewards"] = self.episode_rewards.copy()
+            info["episode_start_full_state"] = self.episode_start_full_state
+
+        return obs, reward, terminated, truncated, info
+
 
 class MontezumaRoomWrapper(gym.Wrapper):
     def __init__(self, env, freeze_skull=True):
@@ -112,6 +159,7 @@ def make_single_env(seed: int, rank: int):
         env = TimeLimit(env, max_episode_steps=4500)
         env = MontezumaRoomWrapper(env, freeze_skull=True)
         env = EpisodeSeedInfoWrapper(env, base_seed=seed, env_rank=rank)
+        env = EpisodeRecorderWrapper(env)
         return env
     return _init
 
