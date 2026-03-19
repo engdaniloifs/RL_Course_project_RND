@@ -3,6 +3,9 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 from rnd import RNDModel
 from envs import make_video_env
+from pathlib import Path
+import json
+from datetime import datetime
 
 
 class RNDBonusCallback(BaseCallback):
@@ -103,45 +106,83 @@ class RoomLoggerCallback(BaseCallback):
         return True
 
 
-class VideoRecorderCallback(BaseCallback):
-    def __init__(self, save_freq=100_000, video_length=4000, deterministic=False, verbose=0):
+class BestPolicySaverCallback(BaseCallback):
+    def __init__(self, save_path="checkpoints", verbose=0):
         super().__init__(verbose)
-        self.save_freq = save_freq
-        self.video_length = video_length
-        self.deterministic = deterministic
-        self.last_recorded_at = 0
-        self.best_episode_reward = 0.5
+        self.save_path = Path(save_path)
+        self.save_path.mkdir(parents=True, exist_ok=True)
+
+        self.archive_path = self.save_path / "archive"
+        self.archive_path.mkdir(parents=True, exist_ok=True)
+
+        self.meta_path = self.save_path / "best_episode.json"
+        self.model_path = self.save_path / "best_model"
+
+        self.best_episode_reward = float("-inf")
+        self._load_previous_best()
+
+    def _load_previous_best(self) -> None:
+        if not self.meta_path.exists():
+            return
+
+        try:
+            with open(self.meta_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+
+            self.best_episode_reward = float(metadata.get("reward", float("-inf")))
+
+            if self.verbose > 0:
+                print(f"Loaded previous best reward: {self.best_episode_reward:.2f}")
+        except Exception as e:
+            if self.verbose > 0:
+                print(f"Could not load previous best metadata: {e}")
 
     def _on_step(self) -> bool:
-        target = (self.num_timesteps // self.save_freq) * self.save_freq
-        if target > self.last_recorded_at:
-            self.last_recorded_at = target
-            self._record_video(tag=f"step_{target}")
-
         infos = self.locals.get("infos", [])
-        for info in infos:
+
+        for env_idx, info in enumerate(infos):
             ep_info = info.get("episode")
             if ep_info is None:
                 continue
 
-            ep_reward = ep_info["r"]
+            ep_reward = float(ep_info["r"])
+
             if ep_reward > self.best_episode_reward:
+                old_best = self.best_episode_reward
                 self.best_episode_reward = ep_reward
-                self._record_video(tag=f"best_{int(ep_reward)}_step_{self.num_timesteps}")
+
+                # Save/update the main "best" checkpoint
+                self.model.save(str(self.model_path))
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                reward_str = f"{ep_reward:.2f}".replace(".", "p")
+                archive_model_path = self.archive_path / f"best_model_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}"
+                self.model.save(str(archive_model_path))
+
+                metadata = {
+                    "reward": ep_reward,
+                    "length": int(ep_info["l"]),
+                    "num_timesteps": int(self.num_timesteps),
+                    "env_idx": int(env_idx),
+                    "episode_seed": info.get("episode_seed"),
+                    "saved_at": timestamp,
+                    "main_model_path": str(self.model_path.with_suffix(".zip")),
+                    "archive_model_path": str(archive_model_path.with_suffix(".zip")),
+                }
+
+                with open(self.meta_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+
+                archive_meta_path = self.archive_path / f"best_episode_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}.json"
+                with open(archive_meta_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+
+                if self.verbose > 0:
+                    print(
+                        f"New best model saved: reward {ep_reward:.2f} "
+                        f"(previous {old_best:.2f})"
+                    )
+                    print(f"Main checkpoint: {self.model_path.with_suffix('.zip')}")
+                    print(f"Archive checkpoint: {archive_model_path.with_suffix('.zip')}")
 
         return True
-
-    def _record_video(self, tag: str) -> None:
-        video_env = make_video_env(tag)
-        obs = video_env.reset()
-        steps = 0
-
-        while steps < self.video_length:
-            action, _ = self.model.predict(obs, deterministic=self.deterministic)
-            obs, _, dones, _ = video_env.step(action)
-            steps += 1
-
-            if dones[0]:
-                obs = video_env.reset()
-
-        video_env.close()

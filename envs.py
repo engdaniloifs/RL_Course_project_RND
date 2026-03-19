@@ -51,9 +51,56 @@ class MontezumaRoomWrapper(gym.Wrapper):
         return obs, reward, terminated, truncated, info
 
 
+
+class EpisodeSeedInfoWrapper(gym.Wrapper):
+    def __init__(self, env, base_seed: int, env_rank: int):
+        super().__init__(env)
+        self.base_seed = int(base_seed)
+        self.env_rank = int(env_rank)
+
+        self.episode_idx = -1
+        self.current_episode_seed = None
+
+    def _compute_episode_seed(self) -> int:
+        # Deterministic, unique per env and per episode
+        # Large offset avoids collisions across workers
+        return self.base_seed + self.env_rank * 1_000_000 + self.episode_idx
+
+    def reset(self, *, seed=None, options=None):
+        # Ignore external per-reset seed here so the schedule stays reproducible.
+        # If you want, you can allow seed override, but this is simpler.
+        self.episode_idx += 1
+        self.current_episode_seed = self._compute_episode_seed()
+
+        obs, info = self.env.reset(seed=self.current_episode_seed, options=options)
+
+        info = dict(info)
+        info["episode_seed"] = self.current_episode_seed
+        info["episode_idx"] = self.episode_idx
+        info["env_rank"] = self.env_rank
+        info["base_seed"] = self.base_seed
+
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        info = dict(info)
+
+        # Only attach these on episode end if you want the callback to read them there.
+        # You can also attach them every step; both are fine.
+        if terminated or truncated:
+            info["episode_seed"] = self.current_episode_seed
+            info["episode_idx"] = self.episode_idx
+            info["env_rank"] = self.env_rank
+            info["base_seed"] = self.base_seed
+
+        return obs, reward, terminated, truncated, info
+
+
 def make_single_env(seed: int, rank: int):
     def _init():
-        env = gym.make(ENV_ID,full_action_space=False, render_mode="rgb_array")
+        env = gym.make(ENV_ID,full_action_space=False)
         
         allowed_actions = [0, 1, 2, 3, 4, 5, 11, 12]
         env = TransformAction(
@@ -64,7 +111,7 @@ def make_single_env(seed: int, rank: int):
         env = AtariWrapper(env,noop_max=0, terminal_on_life_loss=False, clip_reward=False)
         env = TimeLimit(env, max_episode_steps=4500)
         env = MontezumaRoomWrapper(env, freeze_skull=True)
-        env.reset(seed=seed + rank)
+        env = EpisodeSeedInfoWrapper(env, base_seed=seed, env_rank=rank)
         return env
     return _init
 
