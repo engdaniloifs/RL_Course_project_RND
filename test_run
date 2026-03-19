@@ -71,10 +71,8 @@ def make_exact_replay_env(env_id: str):
 
 
 def restore_full_state(env, state_bytes):
-    ale = env.unwrapped.ale
-    state_ref = ale.decodeState(state_bytes)
-    ale.restoreSystemState(state_ref)
-    ale.deleteState(state_ref)
+    state = payload["episode_start_state"]
+    env.unwrapped.restore_state(state)
 
 
 def replay_exact_episode(meta_path: str):
