@@ -155,13 +155,33 @@ class BestPolicySaverCallback(BaseCallback):
                 old_best = self.best_episode_reward
                 self.best_episode_reward = ep_reward
 
-                # Save/update the main "best" checkpoint
+                # Save main model
                 self.model.save(str(self.model_path))
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 reward_str = f"{ep_reward:.2f}".replace(".", "p")
-                archive_model_path = self.archive_path / f"best_model_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}"
+
+                archive_model_path = (
+                    self.archive_path
+                    / f"best_model_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}"
+                )
                 self.model.save(str(archive_model_path))
+
+                # -------- SAVE EPISODE PAYLOAD HERE --------
+                episode_blob = {
+                    "actions": info.get("episode_actions"),
+                    "rewards": info.get("episode_rewards"),
+                    "episode_start_full_state": info.get("episode_start_full_state"),
+                }
+
+                payload_path = (
+                    self.archive_path
+                    / f"best_episode_payload_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}.pkl"
+                )
+
+                with open(payload_path, "wb") as f:
+                    pickle.dump(episode_blob, f)
+                # ------------------------------------------
 
                 metadata = {
                     "reward": ep_reward,
@@ -169,15 +189,22 @@ class BestPolicySaverCallback(BaseCallback):
                     "num_timesteps": int(self.num_timesteps),
                     "env_idx": int(env_idx),
                     "episode_seed": info.get("episode_seed"),
+                    "episode_idx": info.get("episode_idx"),
+                    "env_rank": info.get("env_rank"),
                     "saved_at": timestamp,
                     "main_model_path": str(self.model_path.with_suffix(".zip")),
                     "archive_model_path": str(archive_model_path.with_suffix(".zip")),
+                    "payload_path": str(payload_path),
                 }
 
                 with open(self.meta_path, "w", encoding="utf-8") as f:
                     json.dump(metadata, f, indent=2)
 
-                archive_meta_path = self.archive_path / f"best_episode_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}.json"
+                archive_meta_path = (
+                    self.archive_path
+                    / f"best_episode_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}.json"
+                )
+
                 with open(archive_meta_path, "w", encoding="utf-8") as f:
                     json.dump(metadata, f, indent=2)
 
@@ -186,7 +213,6 @@ class BestPolicySaverCallback(BaseCallback):
                         f"New best model saved: reward {ep_reward:.2f} "
                         f"(previous {old_best:.2f})"
                     )
-                    print(f"Main checkpoint: {self.model_path.with_suffix('.zip')}")
-                    print(f"Archive checkpoint: {archive_model_path.with_suffix('.zip')}")
+                    print(f"Payload saved at: {payload_path}")
 
         return True
