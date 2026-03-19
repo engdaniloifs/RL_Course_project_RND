@@ -15,7 +15,7 @@ checkpoints/
 tb_logs/
 logs/
 assignment3/
-
+best_models/
 # large files
 *.mp4
 *.zip
