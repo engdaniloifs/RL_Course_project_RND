@@ -1,0 +1,144 @@
+import json
+import pickle
+import gymnasium as gym
+import ale_py  # registers Atari envs
+
+from gymnasium.wrappers import TimeLimit, TransformAction
+from gymnasium.spaces import Discrete
+
+
+ENV_ID = "MontezumaRevengeNoFrameskip-v4"
+
+
+class MontezumaRoomWrapper(gym.Wrapper):
+    def __init__(self, env, freeze_skull=True):
+        super().__init__(env)
+        self.freeze_skull = freeze_skull
+
+    def _get_room(self):
+        ram = self.unwrapped.ale.getRAM()
+        return int(ram[3])
+
+    def _freeze_skull(self):
+        self.unwrapped.ale.setRAM(47, 56)
+        self.unwrapped.ale.setRAM(40, 93)
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+
+        if self.freeze_skull:
+            self._freeze_skull()
+
+        info = dict(info)
+        info["room"] = self._get_room()
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        if self.freeze_skull:
+            self._freeze_skull()
+
+        info = dict(info)
+        info["room"] = self._get_room()
+        return obs, reward, terminated, truncated, info
+
+
+def make_exact_replay_env(env_id: str):
+    env = gym.make(
+        env_id,
+        full_action_space=False,
+        render_mode="human",
+    )
+
+    allowed_actions = [0, 1, 2, 3, 4, 5, 11, 12]
+    env = TransformAction(
+        env,
+        func=lambda a: allowed_actions[a],
+        action_space=Discrete(len(allowed_actions)),
+    )
+
+    env = TimeLimit(env, max_episode_steps=4500)
+    env = AtariWrapper(
+        env,
+        noop_max=0,
+        terminal_on_life_loss=False,
+        clip_reward=False,
+    )
+    env = MontezumaRoomWrapper(env, freeze_skull=True)
+
+    return env
+
+
+def restore_full_state(env, state_bytes):
+    ale = env.unwrapped.ale
+    state_ref = ale.decodeState(state_bytes)
+    ale.restoreSystemState(state_ref)
+    ale.deleteState(state_ref)
+
+
+def replay_exact_episode(meta_path: str):
+    with open(meta_path, "r", encoding="utf-8") as f:
+        meta = json.load(f)
+
+    payload_path = meta["payload_path"]
+
+    with open(payload_path, "rb") as f:
+        payload = pickle.load(f)
+
+    actions = payload.get("actions")
+    rewards = payload.get("rewards")
+    state_bytes = payload.get("episode_start_full_state")
+
+    if actions is None:
+        raise ValueError("Payload does not contain 'actions'.")
+    if state_bytes is None:
+        raise ValueError("Payload does not contain 'episode_start_full_state'.")
+
+    print(f"Loaded metadata: {meta_path}")
+    print(f"Loaded payload: {payload_path}")
+    print(f"Saved reward: {meta.get('reward')}")
+    print(f"Saved length: {meta.get('length')}")
+    print(f"Number of recorded actions: {len(actions)}")
+
+    env = make_exact_replay_env(ENV_ID)
+
+    try:
+        # Reset once so env is fully initialized
+        obs, info = env.reset()
+
+        # Restore exact saved emulator state
+        restore_full_state(env, state_bytes)
+
+        total_reward = 0.0
+
+        print("Replaying exact saved episode...")
+        for t, action in enumerate(actions):
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += reward
+
+            room = info.get("room")
+            print(
+                f"step={t:04d} action={action} reward={reward:.2f} "
+                f"total_reward={total_reward:.2f} room={room}"
+            )
+
+            if terminated or truncated:
+                print("Episode ended during replay.")
+                break
+
+        print(f"Replay finished. Total replay reward: {total_reward:.2f}")
+
+        if rewards is not None:
+            print(f"Original saved reward sum from payload: {sum(rewards):.2f}")
+
+    finally:
+        env.close()
+
+
+def main():
+    replay_exact_episode("checkpoints/best_episode.json")
+
+
+if __name__ == "__main__":
+    main()
