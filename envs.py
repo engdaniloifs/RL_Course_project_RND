@@ -11,12 +11,11 @@ from stable_baselines3.common.vec_env import (
     VecVideoRecorder,
     SubprocVecEnv,
 )
-
+import pickle
 
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
 
-import gymnasium as gym
-import pickle
+
 
 
 class EpisodeRecorderWrapper(gym.Wrapper):
@@ -24,28 +23,20 @@ class EpisodeRecorderWrapper(gym.Wrapper):
         super().__init__(env)
         self.episode_actions = []
         self.episode_rewards = []
-        self.episode_start_full_state = None
+        self.episode_start_state = None
 
     def _clone_full_state(self):
-        ale = self.unwrapped.ale
-        state_ref = ale.cloneSystemState()
-        state = ale.encodeState(state_ref)
-        ale.deleteState(state_ref)
-        return bytes(state)
-
-    def _restore_full_state(self, state_bytes):
-        ale = self.unwrapped.ale
-        state_ref = ale.decodeState(state_bytes)
-        ale.restoreSystemState(state_ref)
-        ale.deleteState(state_ref)
+        # include_rng=True is what you want for exact replay
+        return self.unwrapped.clone_state(include_rng=True)
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         self.episode_actions = []
         self.episode_rewards = []
-        self.episode_start_full_state = self._clone_full_state()
+        self.episode_start_state = self._clone_full_state()
+
         info = dict(info)
-        info["episode_start_full_state"] = self.episode_start_full_state
+        info["episode_start_state"] = self.episode_start_state
         return obs, info
 
     def step(self, action):
@@ -58,7 +49,7 @@ class EpisodeRecorderWrapper(gym.Wrapper):
             info = dict(info)
             info["episode_actions"] = self.episode_actions.copy()
             info["episode_rewards"] = self.episode_rewards.copy()
-            info["episode_start_full_state"] = self.episode_start_full_state
+            info["episode_start_state"] = self.episode_start_state
 
         return obs, reward, terminated, truncated, info
 
