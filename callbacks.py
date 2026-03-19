@@ -6,6 +6,7 @@ from envs import make_video_env
 from pathlib import Path
 import json
 from datetime import datetime
+import pickle
 
 
 class RNDBonusCallback(BaseCallback):
@@ -169,11 +170,11 @@ class BestPolicySaverCallback(BaseCallback):
 
                 # -------- SAVE EPISODE PAYLOAD HERE --------
                 episode_blob = {
-                    "actions": info.get("episode_actions"),
-                    "rewards": info.get("episode_rewards"),
-                    "episode_start_full_state": info.get("episode_start_full_state"),
-                }
-
+    "actions": info.get("episode_actions"),
+    "rewards": info.get("episode_rewards"),
+    "episode_start_state": info.get("episode_start_state"),
+}
+   
                 payload_path = (
                     self.archive_path
                     / f"best_episode_payload_reward_{reward_str}_step_{self.num_timesteps}_{timestamp}.pkl"
