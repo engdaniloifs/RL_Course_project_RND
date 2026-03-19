@@ -50,12 +50,13 @@ class RNDBonusCallback(BaseCallback):
         intrinsic = intrinsic.reshape(n_steps, n_envs)
         intrinsic_scaled = intrinsic * self.intrinsic_coefficient
 
-        if (self.model.rollout_buffer.rewards > self.best_reward).any():
-            #print the value of the extrinsic reward, not the whole buffer
-            self.logger.record("test/reward", float(self.model.rollout_buffer.rewards.max()))
-            self.best_reward = float(self.model.rollout_buffer.rewards.max())
-        else:
-            self.logger.record("test/reward",self.best_reward)
+        if len(self.model.ep_info_buffer) > 0:
+            current_best = max(ep_info["r"] for ep_info in self.model.ep_info_buffer)
+
+            if current_best > self.best_reward:
+                self.best_reward = current_best
+
+            self.logger.record("test/reward", float(self.best_reward))
 
         self.model.rollout_buffer.rewards = self.model.rollout_buffer.rewards * self.extrinsic_coefficient + intrinsic_scaled
 
