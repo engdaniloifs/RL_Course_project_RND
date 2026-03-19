@@ -1,7 +1,7 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
 
-from callbacks import RNDBonusCallback, VideoRecorderCallback, RoomLoggerCallback
+from callbacks import RNDBonusCallback,BestPolicySaverCallback, RoomLoggerCallback
 from envs import make_env
 from rnd import RNDModel
 import ale_py
@@ -70,19 +70,16 @@ def main():
         save_path="./checkpoints/",
         name_prefix="ppo_rnd_montezuma",
     )
-
-    video_callback = VideoRecorderCallback(
-        save_freq=VIDEO_FREQ,
-        video_length=VIDEO_LENGTH,
-        deterministic=False,
+    best_callback = BestPolicySaverCallback(
+        save_path="./best_models/",
         verbose=1,
     )
 
     callbacks = CallbackList([
-        rnd_callback,
-        checkpoint_callback,
-        video_callback,
-        RoomLoggerCallback(verbose=1),
+        rnd_callback,                       # modifies rewards (important: first)
+        RoomLoggerCallback(verbose=1),      # reads info, logs
+        best_callback,                      # saves best model (needs episode info)
+        checkpoint_callback,                # periodic saves (last)
     ])
 
     model.learn(
