@@ -8,24 +8,25 @@ import ale_py
 #tensorboard --logdir=./logs
 
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
-N_ENVS = 32
+N_ENVS = 8
 SEED = 0
 DEVICE = "cuda"
 
 TOTAL_TIMESTEPS = 10_000_000
 N_STEPS = 256
-BATCH_SIZE = 2048
+BATCH_SIZE = 512
 N_EPOCHS = 4
 GAMMA = 0.999
 GAE_LAMBDA = 0.95
-LEARNING_RATE = 1e-4
+
 CLIP_RANGE = 0.1
 ENT_COEF = 0.001
 
+LEARNING_RATE = 5e-5
 RND_LR = 5e-4
 RND_LATENT_DIM = 512
 RND_UPDATE_PROPORTION = 1.0
-intrinsic_coefficient = 0.25
+intrinsic_coefficient = 0.50
 extrinsic_coefficient = 3.0
 
 CHECKPOINT_FREQ = 1_000_000 // N_ENVS
@@ -35,6 +36,8 @@ VIDEO_LENGTH = 4000
 
 def main():
     env = make_env(n_envs=N_ENVS, seed=SEED)
+
+
 
     rnd = RNDModel(
         obs_shape=env.observation_space.shape,
@@ -85,7 +88,8 @@ def main():
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=callbacks,
-        tb_log_name="ppo_rnd_montezuma",
+        tb_log_name="n_envs=" + str(N_ENVS) + ",LEARNING_RATE = 5e-5, RND_LR = 5e-4, RND_LATENT_DIM = 512, RND_UPDATE_PROPORTION = 1.0,n_Steps=256," \
+        " intrinsic_coefficient = 0.50, extrinsic_coefficient = 3.0",
     )
     model.save("ppo_rnd_montezuma_minimal")
 

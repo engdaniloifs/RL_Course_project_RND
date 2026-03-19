@@ -58,7 +58,7 @@ def watch_trained(model_path: str, env_id: str, seed: int = 0):
 
 def main():
     watch_trained(
-        "checkpoints/ppo_rnd_montezuma_1000000_steps.zip",
+        "checkpoints/ppo_rnd_montezuma_7000000_steps.zip",
         "MontezumaRevengeNoFrameskip-v4",
         seed=0,
     )
