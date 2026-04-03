@@ -1,14 +1,15 @@
 import json
 import pickle
+import os
 import gymnasium as gym
 import ale_py  # registers Atari envs
 
-from gymnasium.wrappers import TimeLimit, TransformAction
+from gymnasium.wrappers import TimeLimit, TransformAction, RecordVideo
 from gymnasium.spaces import Discrete
 from stable_baselines3.common.atari_wrappers import AtariWrapper
 
 
-ENV_ID = "MontezumaRevengeNoFrameskip-v4"
+ENV_ID = "ALE/MontezumaRevenge-v5"
 
 
 class MontezumaRoomWrapper(gym.Wrapper):
@@ -45,11 +46,13 @@ class MontezumaRoomWrapper(gym.Wrapper):
         return obs, reward, terminated, truncated, info
 
 
-def make_exact_replay_env(env_id: str):
+def make_exact_replay_env(env_id: str, video_folder="replay_videos"):
+    os.makedirs(video_folder, exist_ok=True)
+
     env = gym.make(
         env_id,
         full_action_space=False,
-        render_mode="human",
+        render_mode="rgb_array",   # important for RecordVideo
     )
 
     allowed_actions = [0, 1, 2, 3, 4, 5, 11, 12]
@@ -63,11 +66,20 @@ def make_exact_replay_env(env_id: str):
     env = AtariWrapper(
         env,
         noop_max=0,
+        frame_skip=0,
         terminal_on_life_loss=False,
         clip_reward=False,
     )
     env = TimeLimit(env, max_episode_steps=4500)
     env = MontezumaRoomWrapper(env, freeze_skull=True)
+
+    # Record every episode
+    env = RecordVideo(
+        env,
+        video_folder=video_folder,
+        episode_trigger=lambda episode_id: True,
+        name_prefix="montezuma_replay",
+    )
 
     return env
 
@@ -134,7 +146,9 @@ def replay_exact_episode(meta_path: str):
 
 
 def main():
-    replay_exact_episode("best_models/best_episode.json")
+    replay_exact_episode(
+        "best_models\\room_progress\\room_progress_episode_rooms_2_maxroom_2_step_9717552_20260320_195216.json"
+    )
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ tb_logs/
 logs/
 assignment3/
 best_models/
+best_models_skulltrue/
 # large files
 *.mp4
 *.zip

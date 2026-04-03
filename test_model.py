@@ -130,37 +130,20 @@ def watch_trained(model_path: str, env_id: str, meta_path: str | None = None, se
 
     model = PPO.load(model_path)
 
-    episode_seed = None
-    if meta_path is not None:
-        with open(meta_path, "r", encoding="utf-8") as f:
-            meta = json.load(f)
-        episode_seed = meta.get("episode_seed")
-        print(f"Loaded metadata from: {meta_path}")
-        print(f"Saved reward: {meta.get('reward')}")
-        print(f"Saved episode length: {meta.get('length')}")
-        print(f"Saved episode seed: {episode_seed}")
+    
 
-    if episode_seed is not None:
-        venv.seed(int(episode_seed))
-    else:
-        venv.seed(int(seed))
+
 
     obs = venv.reset()
 
     print("Watching trained model...")
     try:
         while True:
-            action, _ = model.predict(obs, deterministic=True)
+            action, _ = model.predict(obs, deterministic=False)
             obs, rewards, dones, infos = venv.step(action)
 
             if dones[0]:
                 print("Episode finished.")
-                if episode_seed is not None:
-                    print(f"Resetting with saved episode seed: {episode_seed}")
-                    venv.seed(int(episode_seed))
-                else:
-                    print(f"Resetting with default seed: {seed}")
-                    venv.seed(int(seed))
 
                 obs = venv.reset()
 
@@ -170,10 +153,9 @@ def watch_trained(model_path: str, env_id: str, meta_path: str | None = None, se
 
 def main():
     watch_trained(
-        model_path="checkpoints/best_model.zip",
+        model_path="ppo_rnd_montezuma_minimal.zip",
         env_id=ENV_ID,
-        meta_path="checkpoints/best_episode.json",
-        seed=0,
+        seed=1,
     )
 
 

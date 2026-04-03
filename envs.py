@@ -13,7 +13,7 @@ from stable_baselines3.common.vec_env import (
 )
 import pickle
 
-ENV_ID = "MontezumaRevengeNoFrameskip-v4"
+ENV_ID = "ALE/MontezumaRevenge-v5"
 
 
 
@@ -146,7 +146,7 @@ def make_single_env(seed: int, rank: int):
             func=lambda a: allowed_actions[a],
             action_space=Discrete(len(allowed_actions))
         )
-        env = AtariWrapper(env,noop_max=0, terminal_on_life_loss=False, clip_reward=False)
+        env = AtariWrapper(env,noop_max=0,frame_skip=0, terminal_on_life_loss=False, clip_reward=False)
         env = TimeLimit(env, max_episode_steps=4500)
         env = MontezumaRoomWrapper(env, freeze_skull=True)
         env = EpisodeSeedInfoWrapper(env, base_seed=seed, env_rank=rank)

@@ -8,7 +8,7 @@ import ale_py
 #tensorboard --logdir=./logs
 
 ENV_ID = "MontezumaRevengeNoFrameskip-v4"
-N_ENVS = 8
+N_ENVS = 16
 SEED = 0
 DEVICE = "cuda"
 
@@ -27,7 +27,7 @@ RND_LR = 5e-4
 RND_LATENT_DIM = 512
 RND_UPDATE_PROPORTION = 1.0
 intrinsic_coefficient = 0.50
-extrinsic_coefficient = 3.0
+extrinsic_coefficient = 1.0
 
 CHECKPOINT_FREQ = 1_000_000 // N_ENVS
 VIDEO_FREQ = 1_000_000
@@ -67,11 +67,11 @@ def main():
 
     checkpoint_callback = CheckpointCallback(
         save_freq=CHECKPOINT_FREQ,
-        save_path="./checkpoints/",
+        save_path="./checkpoints_skulltrue/",
         name_prefix="ppo_rnd_montezuma",
     )
     best_callback = BestPolicySaverCallback(
-        save_path="./best_models/",
+        save_path="./best_models_skulltrue/",
         verbose=1,
     )
 
@@ -85,10 +85,9 @@ def main():
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=callbacks,
-        tb_log_name="n_envs=" + str(N_ENVS) + ",LEARNING_RATE = 5e-5, RND_LR = 5e-4, RND_LATENT_DIM = 512, RND_UPDATE_PROPORTION = 1.0,n_Steps=256," \
-        " intrinsic_coefficient = 0.50, extrinsic_coefficient = 3.0",
+        tb_log_name="new_run",
     )
-    model.save("ppo_rnd_montezuma_minimal")
+    model.save("ppo_rnd_montezuma_minimal_skull_true")
 
 
 if __name__ == "__main__":
